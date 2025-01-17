@@ -1,1 +1,1 @@
-# HardCoalDataAnalysis
+### Projekt z Szeregów Czasowych
