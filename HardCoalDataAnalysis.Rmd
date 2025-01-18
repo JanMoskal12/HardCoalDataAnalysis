@@ -1,0 +1,40 @@
+---
+title: "Projekt z Szeregów Czasowych"
+author: "Jan Moskal"
+date: "2025-01-18"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(forecast)
+```
+
+
+### Wstęp
+Dane, które będziemy analizować, pochodzą ze strony Głównego Urzędu Statystycznego (https://bdl.stat.gov.pl/bdl/dane/podgrup/temat) znajdują się w grupie "Przeciętne ceny detaliczne towarów i usług konsumpcyjnych", podgrupie "Ceny detaliczne wybranych towarów i usług konsumpcyjnych (dane miesięczne)" i dotyczą cen węgla kamiennego. Dane o przeciętnych cenach obejmują notowania co miesiąc dla całej Polski. Projekt ma na celu analizę tego szeregu czasowego, aby zrozumieć zmiany cen węgla kamiennego w Polsce w latach 2006-2019 i stworzyć prognozy na przyszłość.
+
+### Wczytywanie danych 
+```{r}
+dane <- read_excel("wegiel_kamienny_szereg.xlsx", range = "TABLICA!C4:FN6")
+
+dane <- as.vector(dane[2, ])
+dane <- as.numeric(unlist(dane))
+```
+
+Zamienimay wektor w macierz, aby ustawić dobrą kolejność danych (narazie mamy dane wypisane, w ten sposób, że jeden miesiąc dla czternastu lat i dopiero następny miesiąc, a chcemy żeby było chronologicznie)
+```{r}
+macierz <- matrix(dane, ncol = 14, byrow = TRUE)
+```
+
+Przekształcenie macierzy w wektor czytany kolumnowo (od góry do dołu). W ten sposób otrzymujemy dane w odpowiedniej kolejności.
+```{r}
+dane <- as.vector(macierz)
+t <- 1:length(dane)
+```
+
