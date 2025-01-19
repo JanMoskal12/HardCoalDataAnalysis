@@ -13,6 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(readxl)
 library(forecast)
+library(tseries)
 ```
 
 ```{r include=FALSE}
@@ -139,7 +140,6 @@ shapiro.test( reszty)
 Box.test( reszty, lag = 12, type = "Ljung-Box")
 ```
 
-
 Odrzucamy hipotezy o losowości reszt, o ich średniej w zerze, o ich normalności oraz o ich nieskorelowaniu. 
 
 ### Metoda wykładniczych wag ruchomej średniej
@@ -167,7 +167,6 @@ Z wykresu sezonowości widzimy powtarzający się trend wzrostu cen węgla kamie
 
 
 ### Dekompozycja
-
 ```{r}
 dek <- decompose(w)
 plot(dek)
@@ -178,7 +177,22 @@ dek$random
 
 Po wykonaniu dekompozycji widzimy, że trend jest rosnący w dziedzinie. Widzimy również, że występuje sezonowość w częstotliwości 12 miesięcznej. W kwestii reszt wydają się one oscylować wokół zera, jednak przez ich nieregularność będzie się trzeba im lepiej przyjrzeć.
 
+### Stacjonarność szeregu
+```{r}
+adf.test(dane)
+kpss.test(dane)
+pp.test(dane)
+```
 
+Z wszystkich testów wynika, że szereg jest niestacjonarny.
 
+```{r}
+dane_r1 <- diff(dane)
 
+adf.test(dane_r1)
+kpss.test(dane_r1)
+pp.test(dane_r1)
+```
 
+Za pomocą różnicowania pierwszego stopnia pozbyliśmy się niestacjonarności z naszego szeregu.
+Oryginalny szereg był niestacjonarny, ale zróżnicowanie usunęło trend lub inne niestacjonarne komponenty, takie jak zmienność w średniej lub sezonowość. różnicowanie pierwszego rzędu było wystarczające, oznacza to, że szereg ma jeden pierwiastek jednostkowy.
