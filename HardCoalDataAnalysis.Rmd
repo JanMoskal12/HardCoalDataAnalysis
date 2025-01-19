@@ -9,10 +9,24 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
+```{r include=FALSE }
 library(tidyverse)
 library(readxl)
 library(forecast)
+```
+
+```{r include=FALSE}
+dopasowanie_wielomianu <- function(szereg, stopien){
+  t <- 1:length(szereg)
+  macierz <- NULL
+  for(i in 1:stopien){
+    macierz <- cbind(macierz, t^i)
+  }
+
+  ramka <- data.frame(szereg, macierz)
+  model <- lm(szereg ~ ., data = ramka)
+  return(AIC(model))
+}
 ```
 
 
@@ -20,7 +34,7 @@ library(forecast)
 Dane, które będziemy analizować, pochodzą ze strony Głównego Urzędu Statystycznego (https://bdl.stat.gov.pl/bdl/dane/podgrup/temat) znajdują się w grupie "Przeciętne ceny detaliczne towarów i usług konsumpcyjnych", podgrupie "Ceny detaliczne wybranych towarów i usług konsumpcyjnych (dane miesięczne)" i dotyczą cen węgla kamiennego za toną. Dane o przeciętnych cenach obejmują notowania co miesiąc dla całej Polski. Projekt ma na celu analizę tego szeregu czasowego, aby zrozumieć zmiany cen węgla kamiennego w Polsce w latach 2006-2019 i stworzyć prognozy na przyszłość.
 
 ### Wczytywanie danych 
-```{r}
+```{r message=FALSE}
 dane <- read_excel("wegiel_kamienny_szereg.xlsx", range = "TABLICA!C4:FN6")
 
 dane <- as.vector(dane[2, ])
@@ -37,7 +51,9 @@ Przekształcenie macierzy w wektor czytany kolumnowo (od góry do dołu). W ten 
 dane <- as.vector(macierz)
 t <- 1:length(dane)
 ```
+
 ### Wstępna analiza szeregu
+
 Wykres liniowy dla naszych danych w czasie t.
 ```{r}
 plot(y=dane,x=t,col=4, main ="Cena kukurydzy", type ="l", xlab = "Numer tygodnia" )
@@ -50,20 +66,53 @@ Robimy wykresy typu boxplot oraz histogram, żeby zobaczyć rozkłąd danych.
 Wykresy typu boxplot oraz histogram.
 ```{r}
 par(mfrow = c(1, 2)) 
-
-
 hist(dane, breaks = 15, col = 4, main = "Histogram cen węgla kamiennego",
      xlab = "Cena w Złoty", ylab = "Liczebność", prob = FALSE)
-
-
 boxplot(dane, col = "lightgrey", main = "Wykres ramka-wąsy", horizontal = TRUE)
-
 par(mfrow = c(1, 1))  
 ```
 
-Możemy zauważyć, że rozkład jest lewostronnie asymetryczny, bierzę się to z tego co już zauważyliśmy z wykresu liniowego czyli, że ceny do 700 zł za tonę zaczęły się już po 2 latach
+Możemy zauważyć, że rozkład jest lewostronnie asymetryczny, bierzę się to z tego co już zauważyliśmy z wykresu liniowego czyli, że ceny od 700 zł za tonę zaczęły się już po 2 latach od pierwszej obserwacji z szeregu a pozostałe 12 lat oscylowało co do wartości od 700 do 900 zł za tonę. Z wykresu pudełkowego możemu zauważyć nawet dokładniej, że kwartyl pierwszy wynosi około 700 a kwartyl trzeci około 810 co w przełożeniu na nasz problem oznacza, że połowa obserwacji, czyli z 7 lat znajduje się na tym małym przedziale.
+
+Podstawowe statystyki
+```{r}
+summary(dane)
+```
+Szukamy najlepszego wielomianu opisującego nasz szereg
+```{r}
+Akaike <- c()
+for(i in 1:30){
+  Akaike <- cbind(Akaike, dopasowanie_wielomianu(dane,i))
+}
+i=1:30
+plot(i, Akaike,type="p", pch=19, main ="Kryterium AIC dla wielomianu stopnia i", xlab = "Stopień wielomianu" )
+```
+
+Z kryterium osuwiska wybieramy wielomian stopnia 5.
 
 
+```{r include=FALSE}
+macierz <- c()
+for(i in 1:5){
+    macierz <- cbind(macierz, t^i)
+  }
 
+ramka <- data.frame(dane, macierz)
+```
 
+```{r}
+  par(mfrow = c(1, 3))
+  model_st_5 <- lm(dane ~ ., data=ramka)
+  plot(t, dane, type = "l",
+       main = paste("Dopasowanie wiel. st.:", 5),
+       ylab = "Złoty", xlab = "Cena")
+  lines(t, model_st_5$fitted.values, col = 2, lwd = 1.5)
 
+  plot(t, model_st_5$residuals, main = "Reszty", type = "l")
+  abline(h = 0, col = 2, lwd = 2)
+
+  plot(ecdf(model_st_5$residuals), main = "Dystrybuanta")
+  x <- seq(from = min(model_st_5$residuals), to = max(model_st_5$residuals), length.out = 500)
+  lines(x, pnorm(x, mean = 0, sd = sd(model_st_5$residuals)), col = 4, lwd = 2)
+  par(mfrow = c(1, 1))
+```
