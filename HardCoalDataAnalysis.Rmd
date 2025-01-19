@@ -27,6 +27,17 @@ dopasowanie_wielomianu <- function(szereg, stopien){
   model <- lm(szereg ~ ., data = ramka)
   return(AIC(model))
 }
+
+wykładnicza <- function(x, mi, color){
+  f <- NULL
+  f[1] <- x[1]
+  t <- length(x)
+  for(i in 2:t){
+    f[i] <- (1 - mi) / (1 - mi^i) * (x[i] + mi * (1 - mi^(i - 1))/(1 - mi) * f[i - 1])
+  }
+  lines(1:t, f, col = color)
+}
+
 ```
 
 
@@ -53,7 +64,6 @@ t <- 1:length(dane)
 ```
 
 ### Wstępna analiza szeregu
-
 Wykres liniowy dla naszych danych w czasie t.
 ```{r}
 plot(y=dane,x=t,col=4, main ="Cena kukurydzy", type ="l", xlab = "Numer tygodnia" )
@@ -62,8 +72,7 @@ plot(y=dane,x=t,col=4, main ="Cena kukurydzy", type ="l", xlab = "Numer tygodnia
 Jak widzimy z wykresu, cena dość szybko wzrosła do cen powyżej 700 zł. Widzimy również, że ogólny trend jest rosnący.
 
 
-Robimy wykresy typu boxplot oraz histogram, żeby zobaczyć rozkłąd danych. 
-Wykresy typu boxplot oraz histogram.
+Robimy wykresy typu boxplot oraz histogram, żeby zobaczyć rozkład danych. 
 ```{r}
 par(mfrow = c(1, 2)) 
 hist(dane, breaks = 15, col = 4, main = "Histogram cen węgla kamiennego",
@@ -78,6 +87,7 @@ Podstawowe statystyki
 ```{r}
 summary(dane)
 ```
+
 Szukamy najlepszego wielomianu opisującego nasz szereg
 ```{r}
 Akaike <- c()
@@ -89,7 +99,6 @@ plot(i, Akaike,type="p", pch=19, main ="Kryterium AIC dla wielomianu stopnia i",
 ```
 
 Z kryterium osuwiska wybieramy wielomian stopnia 5.
-
 
 ```{r include=FALSE}
 macierz <- c()
@@ -116,3 +125,28 @@ ramka <- data.frame(dane, macierz)
   lines(x, pnorm(x, mean = 0, sd = sd(model_st_5$residuals)), col = 4, lwd = 2)
   par(mfrow = c(1, 1))
 ```
+
+### Metoda wykładniczych wag ruchomej średniej
+```{r}
+plot(dane, main = "Ceny węgla kamiennego", lwd = 2, type = "l", xlab = "Czas", ylab = "zł")
+wykładnicza(dane, 0.9, "red")
+wykładnicza(dane, 0.7, "blue")
+wykładnicza(dane, 0.5, "green")
+wykładnicza(dane, 0.3, "purple")
+```
+
+W celu elminacji losowych fluktuacji w szergeu czasowym użyliśmy metody wykładniczych wag ruchomej średniej. Widać, że wraz ze wzrostem współczynnika wag funkcja przybliżająca mniej naśladuje zaburzenia zewnętrzne w modelu i na odwrót. 
+
+### Analiza trendów fazowych 
+```{r}
+w <- ts(dane, frequency = 12)
+plot(w, type = "l")
+
+
+ggseasonplot(w, polar = FALSE, main = "Wykres sezonowości dla lat 2006-2019", xlab = NULL) + 
+  theme(legend.position = "none")
+```
+
+Z wykresu sezonowości widzimy powtarzający się trend wzrostu cen węgla kamiennego w okresie od sierpnia do listopada. W okresie od stycznia do maja zauważalny jest nieznaczny trend spadkowy cen.
+
+
