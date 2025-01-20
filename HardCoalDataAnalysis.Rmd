@@ -43,7 +43,7 @@ wykładnicza <- function(x, mi, color){
 
 
 ### Wstęp
-Dane, które będziemy analizować, pochodzą ze strony Głównego Urzędu Statystycznego (https://bdl.stat.gov.pl/bdl/dane/podgrup/temat) znajdują się w grupie "Przeciętne ceny detaliczne towarów i usług konsumpcyjnych", podgrupie "Ceny detaliczne wybranych towarów i usług konsumpcyjnych (dane miesięczne)" i dotyczą cen węgla kamiennego za toną. Dane o przeciętnych cenach obejmują notowania co miesiąc dla całej Polski. Projekt ma na celu analizę tego szeregu czasowego, aby zrozumieć zmiany cen węgla kamiennego w Polsce w latach 2006-2019 i stworzyć prognozy na przyszłość.
+Dane, które będziemy analizować, pochodzą ze strony Głównego Urzędu Statystycznego (https://bdl.stat.gov.pl/bdl/dane/podgrup/temat) znajdują się w grupie "Przeciętne ceny detaliczne towarów i usług konsumpcyjnych", w podgrupie "Ceny detaliczne wybranych towarów i usług konsumpcyjnych (dane miesięczne)" i dotyczą cen węgla kamiennego za toną. Dane o przeciętnych cenach obejmują notowania co miesiąc dla całej Polski. Projekt ma na celu analizę tego szeregu czasowego, aby zrozumieć zmiany cen węgla kamiennego w Polsce w latach 2006-2019.
 
 ```{r message=FALSE}
 dane <- read_excel("wegiel_kamienny_szereg.xlsx", range = "TABLICA!C4:FN6")
@@ -62,10 +62,9 @@ t <- 1:length(dane)
 ```
 
 ### Wstępna analiza szeregu
-Wykres liniowy dla naszych danych w czasie t.
 
 ```{r}
-plot(y = dane, x = t, col = 4, main = "Cena kukurydzy", type = "l", xlab = "Numer tygodnia")
+plot(y = dane, x = t, col = 4, main = "Cena kukurydzy", type = "l", xlab = "Numer miesiąca")
 ```
 
 Jak widzimy z wykresu, cena dość szybko wzrosła do cen powyżej 700 zł. Widzimy również, że ogólny trend jest rosnący.
@@ -83,6 +82,7 @@ par(mfrow = c(1, 1))
 Możemy zauważyć, że rozkład jest lewostronnie asymetryczny, bierzę się to z tego co już zauważyliśmy z wykresu liniowego czyli, że ceny od 700 zł za tonę zaczęły się już po 2 latach od pierwszej obserwacji z szeregu a pozostałe 12 lat oscylowało co do wartości od 700 do 900 zł za tonę. Z wykresu pudełkowego możemu zauważyć nawet dokładniej, że kwartyl pierwszy wynosi około 700 a kwartyl trzeci około 810 co w przełożeniu na nasz problem oznacza, że połowa obserwacji, czyli z 7 lat znajduje się na tym małym przedziale.
 
 Podstawowe statystyki
+
 ```{r}
 summary(dane)
 ```
@@ -144,7 +144,7 @@ Wyniki sugerują, że wybrany model nie jest w stanie odpowiednio uchwycić stru
 ### Analiza trendów fazowych 
 ```{r}
 w <- ts(dane, frequency = 12)
-ggseasonplot(w, polar = FALSE, main = "Wykres sezonowości dla lat 2006-2019", xlab = NULL) + 
+ggseasonplot(w, polar = FALSE, main = "Wykres sezonowości dla lat 2006-2019", xlab = NULL, ylab = "Cena") + 
   theme(legend.position = "none")
 ```
 
@@ -174,7 +174,7 @@ arima <- auto.arima(dane)
 arima
 ```
 
-Model ARIMA(4,1,0) wskazuje, że szereg czasowy wymagał różnicowania pierwszego rzędu, aby stać się stacjonarny. Współczynniki autoregresyjne sugerują zależność od czterech poprzednich wartości, a obecność dryfu oznacza trend wzrostowy. Niemamy składnika średniej ruchomej. Teraz przejdziemy do zbadania reszt.
+Model ARIMA(4,1,0) wskazuje, że szereg czasowy wymagał różnicowania pierwszego rzędu, aby stać się stacjonarnym. Współczynniki autoregresyjne sugerują zależność od czterech poprzednich wartości, a obecność dryfu oznacza trend wzrostowy. Niemamy składnika średniej ruchomej. Teraz przejdziemy do zbadania reszt.
 
 ```{r}
 reszty <- arima$residuals
@@ -190,8 +190,8 @@ t.test(reszty, mu = 0)
 Nie odrzucamy hipotezy o średniej równej 0.
 
 ```{r}
-nortest::lillie.test( reszty)
-shapiro.test( reszty)
+nortest::lillie.test(reszty)
+shapiro.test(reszty)
 ```
 
 Odrzucamy hipotezę o normalności reszt.
@@ -201,6 +201,9 @@ Box.test( reszty, lag = 12, type = "Ljung-Box")
 ```
 
 Odrzucamy hipotezę o braku korelacji w resztach.
+
+
+
 
 ```{r}
 acf(reszty, main = 'Wykres autokorelacji reszt')
@@ -214,3 +217,7 @@ lmtest::bptest(reszty~t)
 Nie odrzucamy hipotezy o jednorodności wariancji.
 
 Model ARIMA(4, 1, 0), mimo że dobrze odwzorowuje poziom szeregu czasowego, nie wychwytuje wszystkich zależności w danych, co widać po obecności autokorelacji w resztach. Wskazuje to na potencjalną potrzebę dalszej optymalizacji modelu, aby lepiej uchwycić zależności czasowe. Brak heteroskedastyczności sugeruje, że wariancja reszt jest stabilna w czasie, więc model GARCH nie jest konieczny.
+
+
+### Podsumowanie projektu
+W ramach analizy szeregu czasowego cen węgla kamiennego w Polsce w latach 2006-2019, przeprowadziliśmy szereg kroków w celu zrozumienia struktury danych. Dopasowanie wielomianu stopnia 5 nie poprawiło jakości modelu, ponieważ reszty z tego modelu były skorelowane i miały nienormalny rozkład. Dekompozycja szeregu ujawniła rosnący trend i sezonowość, z wyraźnym wzrostem cen w okresie od sierpnia do listopada. Testy stacjonarności wskazały na niestacjonarność szeregu, co skutkowało zastosowaniem modelu ARIMA(4,1,0), który po różnicowaniu pierwszego rzędu stabilizował szereg. Mimo że model ARIMA dobrze odwzorowywał poziom szeregu, reszty wykazywały autokorelację, co sugeruje konieczność dalszej optymalizacji modelu w celu pełniejszego uchwycenia zależności czasowych. Możnabyłoby kontunuować pracę aby otrzymać lepiej radzący sobie model jednak my w tym miejscu zakońćzymy.
