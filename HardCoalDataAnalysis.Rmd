@@ -1,12 +1,12 @@
 ---
 title: "Projekt z Szeregów Czasowych"
-author: "Jan Moskal"
+author: "Jan Moskal i Szymon Makulec"
 date: "2025-01-18"
 output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
 ```{r include=FALSE }
@@ -66,6 +66,7 @@ t <- 1:length(dane)
 
 ### Wstępna analiza szeregu
 Wykres liniowy dla naszych danych w czasie t.
+
 ```{r}
 plot(y=dane,x=t,col=4, main ="Cena kukurydzy", type ="l", xlab = "Numer tygodnia" )
 ```
@@ -74,6 +75,7 @@ Jak widzimy z wykresu, cena dość szybko wzrosła do cen powyżej 700 zł. Widz
 
 
 Robimy wykresy typu boxplot oraz histogram, żeby zobaczyć rozkład danych. 
+
 ```{r}
 par(mfrow = c(1, 2)) 
 hist(dane, breaks = 15, col = 4, main = "Histogram cen węgla kamiennego",
@@ -90,6 +92,7 @@ summary(dane)
 ```
 
 Szukamy najlepszego wielomianu opisującego nasz szereg
+
 ```{r}
 Akaike <- c()
 for(i in 1:30){
@@ -142,23 +145,9 @@ Box.test( reszty, lag = 12, type = "Ljung-Box")
 
 Odrzucamy hipotezy o losowości reszt, o ich średniej w zerze, o ich normalności oraz o ich nieskorelowaniu. 
 
-### Metoda wykładniczych wag ruchomej średniej
-```{r}
-plot(dane, main = "Ceny węgla kamiennego", lwd = 2, type = "l", xlab = "Czas", ylab = "zł")
-wykładnicza(dane, 0.9, "red")
-wykładnicza(dane, 0.7, "blue")
-wykładnicza(dane, 0.5, "green")
-wykładnicza(dane, 0.3, "purple")
-```
-
-W celu elminacji losowych fluktuacji w szergeu czasowym użyliśmy metody wykładniczych wag ruchomej średniej. Widać, że wraz ze wzrostem współczynnika wag funkcja przybliżająca mniej naśladuje zaburzenia zewnętrzne w modelu i na odwrót. 
-
 ### Analiza trendów fazowych 
 ```{r}
 w <- ts(dane, frequency = 12)
-plot(w, type = "l")
-
-
 ggseasonplot(w, polar = FALSE, main = "Wykres sezonowości dla lat 2006-2019", xlab = NULL) + 
   theme(legend.position = "none")
 ```
@@ -172,7 +161,6 @@ dek <- decompose(w)
 plot(dek)
 trend <- dek$trend
 seasonal <- dek$seasonal
-dek$random
 ```
 
 Po wykonaniu dekompozycji widzimy, że trend jest rosnący w dziedzinie. Widzimy również, że występuje sezonowość w częstotliwości 12 miesięcznej. W kwestii reszt wydają się one oscylować wokół zera, jednak przez ich nieregularność będzie się trzeba im lepiej przyjrzeć.
@@ -187,12 +175,38 @@ pp.test(dane)
 Z wszystkich testów wynika, że szereg jest niestacjonarny.
 
 ```{r}
-dane_r1 <- diff(dane)
-
-adf.test(dane_r1)
-kpss.test(dane_r1)
-pp.test(dane_r1)
+arima <- auto.arima(dane)
+arima
 ```
 
-Za pomocą różnicowania pierwszego stopnia pozbyliśmy się niestacjonarności z naszego szeregu.
-Oryginalny szereg był niestacjonarny, ale zróżnicowanie usunęło trend lub inne niestacjonarne komponenty, takie jak zmienność w średniej lub sezonowość. różnicowanie pierwszego rzędu było wystarczające, oznacza to, że szereg ma jeden pierwiastek jednostkowy.
+Model ARIMA(4,1,0) wskazuje, że szereg czasowy wymagał różnicowania pierwszego rzędu, aby stać się stacjonarny. Współczynniki autoregresyjne sugerują zależność od czterech poprzednich wartości, a obecność dryfu oznacza trend wzrostowy. Niemamy składnika średniej ruchomej. Teraz przejdziemy do zbadania reszt.
+
+```{r}
+reszty <- arima$residuals
+randtests::runs.test(reszty, threshold = 0)
+```
+Nie odrzucamy hipotezy o losowości reszt.
+```{r}
+t.test(reszty, mu = 0)
+```
+Nie odrzucamy hipotezy o średniej równej 0.
+```{r}
+nortest::lillie.test( reszty)
+shapiro.test( reszty)
+```
+Odrzucamy hipotezę o normalności reszt.
+
+```{r}
+Box.test( reszty, lag = 12, type = "Ljung-Box")
+```
+Odrzucamy hipoteze o braku korelacji w resztach.
+
+
+```{r}
+lmtest::bptest(reszty~t)
+```
+Nie odrzucamy hipotezy o jednorodności wariancji.
+
+
+
+
