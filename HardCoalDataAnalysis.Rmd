@@ -45,7 +45,6 @@ wykładnicza <- function(x, mi, color){
 ### Wstęp
 Dane, które będziemy analizować, pochodzą ze strony Głównego Urzędu Statystycznego (https://bdl.stat.gov.pl/bdl/dane/podgrup/temat) znajdują się w grupie "Przeciętne ceny detaliczne towarów i usług konsumpcyjnych", podgrupie "Ceny detaliczne wybranych towarów i usług konsumpcyjnych (dane miesięczne)" i dotyczą cen węgla kamiennego za toną. Dane o przeciętnych cenach obejmują notowania co miesiąc dla całej Polski. Projekt ma na celu analizę tego szeregu czasowego, aby zrozumieć zmiany cen węgla kamiennego w Polsce w latach 2006-2019 i stworzyć prognozy na przyszłość.
 
-### Wczytywanie danych 
 ```{r message=FALSE}
 dane <- read_excel("wegiel_kamienny_szereg.xlsx", range = "TABLICA!C4:FN6")
 
@@ -53,12 +52,10 @@ dane <- as.vector(dane[2, ])
 dane <- as.numeric(unlist(dane))
 ```
 
-Zamienimay wektor w macierz, aby ustawić dobrą kolejność danych (narazie mamy dane wypisane, w ten sposób, że jeden miesiąc dla czternastu lat i dopiero następny miesiąc, a chcemy żeby było chronologicznie)
 ```{r}
 macierz <- matrix(dane, ncol = 14, byrow = TRUE)
 ```
 
-Przekształcenie macierzy w wektor czytany kolumnowo (od góry do dołu). W ten sposób otrzymujemy dane w odpowiedniej kolejności.
 ```{r}
 dane <- as.vector(macierz)
 t <- 1:length(dane)
@@ -68,18 +65,17 @@ t <- 1:length(dane)
 Wykres liniowy dla naszych danych w czasie t.
 
 ```{r}
-plot(y=dane,x=t,col=4, main ="Cena kukurydzy", type ="l", xlab = "Numer tygodnia" )
+plot(y = dane, x = t, col = 4, main = "Cena kukurydzy", type = "l", xlab = "Numer tygodnia")
 ```
 
 Jak widzimy z wykresu, cena dość szybko wzrosła do cen powyżej 700 zł. Widzimy również, że ogólny trend jest rosnący.
-
 
 Robimy wykresy typu boxplot oraz histogram, żeby zobaczyć rozkład danych. 
 
 ```{r}
 par(mfrow = c(1, 2)) 
 hist(dane, breaks = 15, col = 4, main = "Histogram cen węgla kamiennego",
-     xlab = "Cena w Złoty", ylab = "Liczebność", prob = FALSE)
+     xlab = "Cena w zł", ylab = "Liczebność", prob = FALSE)
 boxplot(dane, col = "lightgrey", main = "Wykres ramka-wąsy", horizontal = TRUE)
 par(mfrow = c(1, 1))  
 ```
@@ -96,13 +92,13 @@ Szukamy najlepszego wielomianu opisującego nasz szereg
 ```{r}
 Akaike <- c()
 for(i in 1:30){
-  Akaike <- cbind(Akaike, dopasowanie_wielomianu(dane,i))
+  Akaike <- cbind(Akaike, dopasowanie_wielomianu(dane, i))
 }
 i=1:30
-plot(i, Akaike,type="p", pch=19, main ="Kryterium AIC dla wielomianu stopnia i", xlab = "Stopień wielomianu" )
+plot(i, Akaike,type = "p", pch = 19, main ="Kryterium AIC dla wielomianu stopnia i", xlab = "Stopień wielomianu" )
 ```
 
-Z kryterium osuwiska wybieramy wielomian stopnia 5.
+Z kryterium wyboru stopnia wielomianu wybieramy wielomian stopnia 5.
 
 ```{r include=FALSE}
 macierz <- c()
@@ -143,7 +139,7 @@ shapiro.test( reszty)
 Box.test( reszty, lag = 12, type = "Ljung-Box")
 ```
 
-Odrzucamy hipotezy o losowości reszt, o ich średniej w zerze, o ich normalności oraz o ich nieskorelowaniu. 
+Wyniki sugerują, że wybrany model nie jest w stanie odpowiednio uchwycić struktury danych, ponieważ reszty są skorelowane, mają nienormalny rozkład i odrzucają hipotezy o losowości. Może to oznaczać, że stopień wielomianu jest nieodpowiedni lub że struktura danych wymaga bardziej złożonego modelu.
 
 ### Analiza trendów fazowych 
 ```{r}
@@ -153,7 +149,6 @@ ggseasonplot(w, polar = FALSE, main = "Wykres sezonowości dla lat 2006-2019", x
 ```
 
 Z wykresu sezonowości widzimy powtarzający się trend wzrostu cen węgla kamiennego w okresie od sierpnia do listopada. W okresie od stycznia do maja zauważalny jest nieznaczny trend spadkowy cen.
-
 
 ### Dekompozycja
 ```{r}
@@ -185,28 +180,37 @@ Model ARIMA(4,1,0) wskazuje, że szereg czasowy wymagał różnicowania pierwsze
 reszty <- arima$residuals
 randtests::runs.test(reszty, threshold = 0)
 ```
+
 Nie odrzucamy hipotezy o losowości reszt.
+
 ```{r}
 t.test(reszty, mu = 0)
 ```
+
 Nie odrzucamy hipotezy o średniej równej 0.
+
 ```{r}
 nortest::lillie.test( reszty)
 shapiro.test( reszty)
 ```
+
 Odrzucamy hipotezę o normalności reszt.
 
 ```{r}
 Box.test( reszty, lag = 12, type = "Ljung-Box")
 ```
-Odrzucamy hipoteze o braku korelacji w resztach.
+
+Odrzucamy hipotezę o braku korelacji w resztach.
+
+```{r}
+acf(reszty, main = 'Wykres autokorelacji reszt')
+```
 
 
 ```{r}
 lmtest::bptest(reszty~t)
 ```
+
 Nie odrzucamy hipotezy o jednorodności wariancji.
 
-
-
-
+Model ARIMA(4, 1, 0), mimo że dobrze odwzorowuje poziom szeregu czasowego, nie wychwytuje wszystkich zależności w danych, co widać po obecności autokorelacji w resztach. Wskazuje to na potencjalną potrzebę dalszej optymalizacji modelu, aby lepiej uchwycić zależności czasowe. Brak heteroskedastyczności sugeruje, że wariancja reszt jest stabilna w czasie, więc model GARCH nie jest konieczny.
